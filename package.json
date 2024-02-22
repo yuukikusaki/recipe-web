@@ -1,0 +1,21 @@
+{
+  "name": "recipe-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "ant-design-vue": "4.x",
+    "dayjs": "^1.11.10",
+    "vue": "^3.4.19",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.1.4"
+  }
+}
