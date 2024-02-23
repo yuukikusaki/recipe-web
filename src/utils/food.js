@@ -55,25 +55,30 @@ const initFood = (list) => {
 export async function getFoodFromExcel(file) {
   // 获取食谱
   const [ws1, ws2] = await readExcel(file)
-  console.log(ws1, ws2);
   // 初始化食谱
   const meatList = initFood(ws1)
   const vegetableList = initFood(ws2)
 
-  console.log(meatList, vegetableList);
-  
   // 保存食谱到本地
   localStorage.setItem('food', JSON.stringify({ meatList, vegetableList }))
 }
 
-const createFoodExcel = (data) => {
 
-}
+export function exportFoodExcel(header, data, mergeCell = []) {
 
-export function exportFoodExcel(data) {
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.json_to_sheet(data);
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, '');
+  header.forEach((v, index) => {
+    const columnLetter = XLSX.utils.encode_col(index); // 将列索引转换为 Excel 列名（A, B, C, ...）  
+    // 设置标题行的单元格（第一行）  
+    worksheet[`${columnLetter}1`] = { t: 's', v };
+  });
+
+  if (mergeCell.length > 0) {
+    worksheet['!merges'] = mergeCell
+  }
+
+  XLSX.utils.book_append_sheet(workbook, worksheet);
   XLSX.writeFile(workbook, `${dayjs(new Date()).format('YYYY-MM-DD')}菜谱.xlsx`)
 }

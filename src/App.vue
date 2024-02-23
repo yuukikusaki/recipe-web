@@ -1,72 +1,84 @@
 <template>
-  <div class="content">
-    <div>
-      <input type="file" @change="handleInput">
-      <button @click="createRecipe">生成食谱</button>
-      <button @click="handleExport">导出食谱</button>
-    </div>
-    <a-table :dataSource="dataSource" :columns="columns" />
-    <!-- <a-list :grid="{ gutter: 0, column: 8 }" :data-source="recipeList">
-      <template #renderItem="{ item }">
-        <a-list-item>
-          <a-card :title="item.day">
-            <div>午餐</div>
-            <div v-for="lunch in item.lunch" :key="lunch.name">{{ lunch.name }}</div>
-            <div>晚餐</div>
-            <div v-for="dinner in item.dinner" :key="dinner.name">{{ dinner.name }}</div>
-          </a-card>
-        </a-list-item>
-      </template>
-    </a-list> -->
-    <!-- <div v-for="item in recipeList" :key="item.day">
-      <div>
-        <text>{{ item.day }}</text>
-      </div>
-      <div>
-        <div>
-          <text class="title">午餐：</text>
-        </div>
-        <text class="title">{{ item.lunch.map(v => v.name).join() }}</text>
-      </div>
-      <div>
-        <div>
-          <text class="title">晚餐:</text>
-        </div>
-        <text class="title">{{ item.dinner.map(v => v.name).join() }}</text>
-      </div>
-    </div> -->
+  <div>
+    <a-row :gutter="16">
+      <a-col :span="8">
+        <input type="file" @change="handleInput">
+        <a-form :model="formState" :label-col="{ style: { width: '100px' } }">
+          <a-form-item label="荤菜数量">
+            <a-input-number v-model:value="formState.meatNum" placeholder="请输入荤菜数量" />
+          </a-form-item>
+          <a-form-item label="素菜数量">
+            <a-input-number v-model:value="formState.vegetableNum" placeholder="请输入素菜数量" />
+          </a-form-item>
+          <a-form-item label="假日荤菜数量">
+            <a-input-number v-model:value="formState.meatNumHoliday" placeholder="请输入荤菜数量" />
+          </a-form-item>
+          <a-form-item label="假日素菜数量">
+            <a-input-number v-model:value="formState.vegetableNumHoliday" placeholder="请输入素菜数量" />
+          </a-form-item>
+          <a-form-item>
+            <a-button @click="createRecipe">生成食谱</a-button>
+            <a-button type="primary" @click="handleExport">导出食谱</a-button>
+          </a-form-item>
+        </a-form>
+
+      </a-col>
+      <a-col :span="16">
+        <a-table size="small" :dataSource="dataSource" :columns="columns" :pagination="false" />
+      </a-col>
+    </a-row>
   </div>
 </template>
 
 <script setup>
-import { ref, toRaw } from 'vue'
+import { computed, reactive, ref, toRaw } from 'vue'
 import { weightedShuffle } from '@/utils/utils'
-import { getFoodFromExcel } from '@/utils/food'
+import { getFoodFromExcel, exportFoodExcel } from '@/utils/food'
 import { getFoodList } from '@/api/foodApi'
 import {
-  List as AList,
-  ListItem as AListItem,
-  Card as ACard,
-  Table as ATable
+  Table as ATable,
+  Row as ARow,
+  Col as ACol,
+  Form as AForm,
+  FormItem as AFormItem,
+  InputNumber as AInputNumber,
+  Button as AButton
 } from 'ant-design-vue'
+
+
+const formState = reactive({
+  meatNum: 4,
+  vegetableNum: 4,
+  meatNumHoliday: 4,
+  vegetableNumHoliday: 4
+})
+
+const maxDishNum = computed(() =>
+  Math.max(formState.meatNum, formState.meatNumHoliday) + Math.max(formState.vegetableNum, formState.vegetableNumHoliday
+  ))
 
 
 // 生成这一周的数据
 const weekList = [
-  { day: '星期一', meatNum: 4, vegetableNum: 4 },
-  { day: '星期二', meatNum: 4, vegetableNum: 4 },
-  { day: '星期三', meatNum: 4, vegetableNum: 4 },
-  { day: '星期四', meatNum: 4, vegetableNum: 4 },
-  { day: '星期五', meatNum: 4, vegetableNum: 4 },
-  { day: '星期六', meatNum: 3, vegetableNum: 3 },
-  { day: '星期日', meatNum: 3, vegetableNum: 3 },
+  { day: '星期一', isHoliday: false, meatNum: 0, vegetableNum: 0 },
+  { day: '星期二', isHoliday: false, meatNum: 0, vegetableNum: 0 },
+  { day: '星期三', isHoliday: false, meatNum: 0, vegetableNum: 0 },
+  { day: '星期四', isHoliday: false, meatNum: 0, vegetableNum: 0 },
+  { day: '星期五', isHoliday: false, meatNum: 0, vegetableNum: 0 },
+  { day: '星期六', isHoliday: true, meatNum: 0, vegetableNum: 0 },
+  { day: '星期日', isHoliday: true, meatNum: 0, vegetableNum: 0 },
 ]
 
 const recipeList = ref([])
 
 
 const columns = [
-  { title: '', key: 'title', dataIndex: 'title' },
+  {
+    title: '', key: 'title', dataIndex: 'title',
+    customCell: (_, index) => ({
+      rowSpan: index === 0 || index === maxDishNum.value ? maxDishNum.value : 0
+    })
+  },
   { title: '星期一', key: 'day1', dataIndex: 'day1' },
   { title: '星期二', key: 'day2', dataIndex: 'day2' },
   { title: '星期三', key: 'day3', dataIndex: 'day3' },
@@ -89,41 +101,48 @@ const createRecipe = () => {
   const shuffleMeatList = weightedShuffle(meatList)
   const shuffleVegetableList = weightedShuffle(vegetableList)
 
+
   const list = []
   weekList.forEach(v => {
+    // 获取荤素数量
+    const meatNum = v.isHoliday ? formState.meatNumHoliday : formState.meatNum
+    const vegetableNum = v.isHoliday ? formState.vegetableNumHoliday : formState.vegetableNum
+
     list.push({
       day: v.day,
-      lunch: [...shuffleMeatList.splice(0, v.meatNum), ...shuffleVegetableList.splice(0, v.vegetableNum)],
-      dinner: [...shuffleMeatList.splice(0, v.meatNum), ...shuffleVegetableList.splice(0, v.vegetableNum)]
+      lunch: [...shuffleMeatList.splice(0, meatNum), ...shuffleVegetableList.splice(0, vegetableNum)],
+      dinner: [...shuffleMeatList.splice(0, meatNum), ...shuffleVegetableList.splice(0, vegetableNum)]
     })
   });
 
+  createTableData(list)
+
   recipeList.value = list;
-
-  const maxMeat = Math.max(...weekList.map(v => v.meatNum))
-  const maxvegetable = Math.max(...weekList.map(v => v.meatNum))
-  console.log(maxMeat, maxvegetable);
-  const list2 = [
-    { title: '', ...Object.fromEntries(list.map((v, i) => ([[`day${i + 1}`], v.day]))) },
-  ]
-
-  for (let j = 0; j < maxMeat; j++) {
-    list2.push({
-      title: '午饭', ...Object.fromEntries(list.map((v, i) => ([`day${i + 1}`, v.lunch[j].name]))),
-    })
-  }
-  for (let j = 0; j < maxvegetable; j++) {
-    list2.push({
-      title: '晚饭', ...Object.fromEntries(list.map((v, i) => ([`day${i + 1}`, v.dinner[j].name]))),
-    })
-  }
-  console.log('list2', list2);
-  dataSource.value = list2
 
 }
 
+const createTableData = (foodList) => {
+  console.log(formState.meatNum, formState.meatNumHoliday);
+  const maxMeat = Math.max(formState.meatNum, formState.meatNumHoliday)
+  const maxVegetable = Math.max(formState.vegetableNum, formState.vegetableNumHoliday)
+  console.log(maxMeat, maxVegetable);
+  const list = []
 
-console.log(recipeList.value);
+  // 午饭
+  for (let j = 0; j < maxMeat + maxVegetable; j++) {
+    list.push({
+      title: '午饭', ...Object.fromEntries(foodList.map((v, i) => ([`day${i + 1}`, v.lunch[j]?.name]))),
+    })
+  }
+  // 晚饭
+  for (let j = 0; j < maxMeat + maxVegetable; j++) {
+    list.push({
+      title: '晚饭', ...Object.fromEntries(foodList.map((v, i) => ([`day${i + 1}`, v.dinner[j]?.name]))),
+    })
+  }
+  dataSource.value = list
+}
+
 
 // 导入文件
 const handleInput = (data) => {
@@ -132,7 +151,20 @@ const handleInput = (data) => {
 }
 
 const handleExport = () => {
-  exportFoodExcel(toRaw(recipeList.value))
+  if (dataSource.value.length === 0) {
+    alert('请先生成食谱')
+    return false
+  }
+  const header = columns.map(v => v.title)
+
+  const mergeCell = [
+    // 午饭
+    { s: { r: 1, c: 0 }, e: { r: maxDishNum.value, c: 0 } },
+    // 晚饭
+    { s: { r: maxDishNum.value + 1, c: 0 }, e: { r: maxDishNum.value * 2, c: 0 } } // 注意行号是从0开始的，所以 A10 对应的是第9行  
+
+  ]
+  exportFoodExcel(header, toRaw(dataSource.value), mergeCell)
 }
 
 </script>
